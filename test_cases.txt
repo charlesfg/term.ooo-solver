@@ -1,2 +1,10 @@
 certo#somar#x?xx?
 certo#corte#!?!!?
+furto#morsa#x?!xx
+furto#perto#xx!!!
+furto#curto#x!!!!
+risco#somar#??xx?
+risco#resto#!x!x!
+bruta#morsa#xx?x!
+bruta#terca#?x?x!
+bruta#brita#!!x!!
