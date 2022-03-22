@@ -235,6 +235,54 @@ consonant_f = {
 }
 
 
+class CharacterGenerator:
+    def __init__(self,cc, vc, iv):
+        self.cc = cc
+        self.vc = vc
+        self.back_chars = []
+        self.i = 0
+        self.wait = 0
+        self.iv = iv
+        self.vowel_added_back = 0
+        pass
+
+    def char_generator(self):
+        while True:
+            char_source = self.cc
+            if self.i < self.iv:
+                if self.vc:
+                    char_source = self.vc
+            if self.vowel_added_back:
+                char_source = self.vc
+                self.vowel_added_back = 0
+            tmp_c = [x for x in sorted(char_source.items(), key=operator.itemgetter(1), reverse=True)][0]
+            # print(" tmp_c:",tmp_c)
+            yield tmp_c[0]
+            del char_source[tmp_c[0]]
+            if self.wait:
+                self.wait -= 1
+            else:
+                if self.back_chars:
+                    self._add_back()
+            self.i+=1
+        pass
+
+    def back(self, c):
+        self.back_chars.append(c)
+        self.wait += 2
+
+    def _add_back(self):
+        for c in self.back_chars:
+            if c in consonant_f:
+                self.cc[c] = consonant_f[c]
+            elif c in vowel_f:
+                self.vc[c] = vowel_f[c]
+                self.vowel_added_back = 1
+            else:
+                raise ValueError("Character Unknow {}".format(c))
+        pass
+
+
 class Guesser:
     """
     This class is to solve word guessing games in Portugues like:
@@ -331,13 +379,14 @@ class Guesser:
             elif c == '?':
                 if usedword[i] not in self.wrong_place[i]:
                     self.wrong_place[i].append(usedword[i])
+                    self.in_word.append(usedword[i])
             else:
                 ValueError("Patter should only have x ! or ?")
 
         arr_reg = [[] for i in range(5)]
         for i in range(5):
             c = self.word[i]
-            if c == 0 and self.wrong_place[i]:
+            if c == '0' and bool(self.wrong_place[i]):
                 arr_reg[i] = '[^{}]'.format(''.join(self.wrong_place[i]))
             else:
                 arr_reg[i] = c
@@ -406,10 +455,12 @@ class Guesser:
         vc = vowel_f.copy()
         cc = consonant_f.copy()
 
+        # No space for more characters
         if iw_l == 5:
             self.print_candidates(in_word, out_of_word, word_regex)
             return
 
+        # Removing chars that will not be included in the next pool
         for o in out_of_word + in_word:
             if o in vc:
                 del vc[o]
@@ -418,6 +469,7 @@ class Guesser:
                 del cc[o]
                 # print("removing ",o)
 
+        # We do not have any clue, first try
         if iw_l == 0:
             tmp_inw = "".join(
                 [x[0] for x in sorted(vc.items(), key=operator.itemgetter(1), reverse=True)][0:self.startVowels])
@@ -430,26 +482,30 @@ class Guesser:
         candidates = None
         # print("-",in_word)
 
+        gen = CharacterGenerator(cc, vc, self.incVowels)
+        char_gen = gen.char_generator()
+
         for i in range(5 - iw_l):
-            char_source = cc
-            # Just one vowel per try after the first try
-            if i < self.incVowels:
-                if vc:
-                    char_source = vc
-            tmp_c = [x[0] for x in sorted(char_source.items(), key=operator.itemgetter(1), reverse=True)][0]
-            # print(" tmp_c:",tmp_c)
-            new_chars += tmp_c
-            del char_source[tmp_c]
+            new_chars += next(char_gen)
+
         print("-", in_word + new_chars)
 
+        candidates = self.print_candidates(in_word + new_chars, out_of_word, word_regex, True)
+
         while not candidates:
+            print("Failed! With sequence '{}'".format(in_word + new_chars))
+            rollback = new_chars[-1]
             new_chars = new_chars[:-1]
-            print("Failed! retrying with '{}'".format(in_word + new_chars))
+            new_chars += next(char_gen)
+            print("Retrying with '{}'".format(in_word + new_chars))
             candidates = self.print_candidates(in_word + new_chars, out_of_word, word_regex, True)
+            gen.back(rollback)
+
 
         print(candidates)
 
 
 if __name__ == '__main__':
-    wg = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=3)
+    #wg = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=3)
     wg = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=2, incVowels=2)
+    wg.nextGuess("ramos", "?xxxx")

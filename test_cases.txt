@@ -8,3 +8,5 @@ risco#resto#!x!x!
 bruta#morsa#xx?x!
 bruta#terca#?x?x!
 bruta#brita#!!x!!
+tigre#ramos#?xxxx
+tigre#inter#?x???
