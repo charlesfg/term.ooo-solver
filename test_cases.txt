@@ -10,3 +10,17 @@ bruta#terca#?x?x!
 bruta#brita#!!x!!
 tigre#ramos#?xxxx
 tigre#inter#?x???
+exito#somar#x?xxx
+exito#teclo#??xx!
+exito#egito#!x!!!
+longo#morsa#x!xxx
+longo#conte#x!!xx
+bujao#serao#xxx!!
+bujao#timao#xxx!!
+bujao#uncao#?xx!!
+bujao#puxao#x!x!!
+caule#serao#x?x?x
+caule#matei#x!x?x
+nenem#serao#x!xxx
+nenem#matei#?xx!x
+nenem#caule#xxxx?

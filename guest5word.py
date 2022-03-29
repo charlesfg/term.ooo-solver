@@ -79,121 +79,6 @@ class Game:
 
         return "".join(pttrn)
 
-    def play_old(self, guess):
-
-        #   - iterate over pttrn
-        #   - for each index i
-        #   - Check guess[i]:
-        #       - create a list with the indexes of guess[i] in guess and word
-        #       - if not exist => x
-        #       - if exist and guess[i] == word[i] => !
-        #       - else
-        #           - if #gi < #wi => ?
-        #           - else iterate over j =   1 to #gi
-        #                   - j < i ...
-        #
-        if self.tries == 0:
-            raise Exception("No more tries! End of Game!")
-        self.tries += 1
-
-        # list of idx that correspond each guess character in the word
-        #  word[idx_in_word[i][j] == guess[i]
-        idx_in_word = [[] for i in range(5)]
-        # count of occurrences of guest[i] in guess
-        guess_characters_count = [0 for i in range(5)]
-        pttrn = ["0" for i in range(5)]
-
-        # Check each character in guess for correspondence in word
-        for i in range(5):
-            # Mark the exact places to have a notion which character are already in place
-            if guess[i] == self.word[i]:
-                pttrn[i] = '!'
-                # if we find this situation we have to act to avoid problems
-                #   - do not count this character for the ? mark
-            for j in range(5):
-                if guess[i] == self.word[j]:
-                    idx_in_word[i].append(j)
-                if guess[i] == guess[j]:
-                    guess_characters_count[i] += 1
-
-        for i in range(5):
-            if pttrn[i] == '!':
-                continue
-            c_count_in_word = len(idx_in_word[i])
-            if not c_count_in_word:
-                pttrn[i] = 'x'
-            else:
-                # TODO: New approch
-                # Try to sort the chars/idx stably
-                #  and compare the pair (char, idx)
-                # w [(chair, idx)...]
-                # g [(chair, idx)...]
-                # if w_c == g_c:
-                #    idx_c == -> !    next on both
-                #    idx_c >  -> ?    next on word
-                #    idx_c <  -> x    next on guest
-                # Think better on this....
-                #
-                #
-                #
-
-                if c_count_in_word > guess_characters_count[i]:
-                    pttrn[i] = '?'
-                else:
-                    # the problem here is how many '?' have we  filled in pattern for the guest[i] character?
-                    if guess_characters_count[i] >= c_count_in_word:
-                        # do the guest[i] appear in another position in its exact place?
-                        removed = None
-                        for j in range(c_count_in_word):
-                            if pttrn[idx_in_word[i][j]] == '!':
-                                removed = idx_in_word[i].pop(j)
-                                pttrn[i] = 'x'
-                        # if not it is in another place
-                        if not removed:
-                            pttrn[i] = '?'
-                            idx_in_word[i].pop(0)
-                    else:
-                        pttrn[i] = 'x'
-
-        return "".join(pttrn)
-
-    def play_(self, guess):
-
-        if self.tries == 0:
-            raise Exception("No more tries! End of Game!")
-        guess_characters = [[] for i in range(5)]
-        pttrn = ["0" for i in range(5)]
-        # Verify the exact locations for precedence
-        # Avoid some bad cases when verifying the ones that are not in
-        # the right location
-        for i in range(5):
-            if guess[i] == self.word[i]:
-                pttrn[i] = '!'
-        # Check each character in guess for correspondence in word
-        for i in range(5):
-            for j in range(5):
-                if guess[i] == self.word[j]:
-                    guess_characters[i].append(j)
-
-        # Now just check for missing and wrong position
-        # We assume wrong position ONLY THE FIRST CHARACTER in case of
-        # repetition
-        for i in range(5):
-            sz_char = len(guess_characters[i])
-            if sz_char == 0:
-                pttrn[i] = 'x'
-            elif sz_char == 1:
-                if pttrn[guess_characters[i][0]] != '!':
-                    pttrn[i] = '?'
-            else:
-                if pttrn[i] == '0':
-                    for j in guess_characters[i]:
-                        # if pttrn[j] == '0' and
-                        pttrn[i] = '?'
-                        break
-
-        return ''.join(pttrn).replace('0', 'x')
-
     def __foward_check(self, wi, wl, gl):
         for j in range(wi, 5):
             if wl[wi][0] == gl[j][0]:
@@ -236,7 +121,7 @@ consonant_f = {
 
 
 class CharacterGenerator:
-    def __init__(self,cc, vc, iv):
+    def __init__(self, cc, vc, iv):
         self.cc = cc
         self.vc = vc
         self.back_chars = []
@@ -255,6 +140,8 @@ class CharacterGenerator:
             if self.vowel_added_back:
                 char_source = self.vc
                 self.vowel_added_back = 0
+            if not char_source:
+                raise StopIteration
             tmp_c = [x for x in sorted(char_source.items(), key=operator.itemgetter(1), reverse=True)][0]
             # print(" tmp_c:",tmp_c)
             yield tmp_c[0]
@@ -264,7 +151,7 @@ class CharacterGenerator:
             else:
                 if self.back_chars:
                     self._add_back()
-            self.i+=1
+            self.i += 1
         pass
 
     def back(self, c):
@@ -319,7 +206,7 @@ class Guesser:
     STRATEGY_CHARFREQ = "charfreq"
 
     # def __init__(self, strategy, *args, **kwargs):
-    def __init__(self, strategy, *args, startVowels=3, incVowels=1):
+    def __init__(self, strategy=STRATEGY_CHARFREQ, startVowels=3, incVowels=1, initialGuess=True):
 
         self.word = ['0' for i in range(5)]
         # used to hold characters for the exclusion [^`x`] regex
@@ -330,6 +217,7 @@ class Guesser:
         self.incVowels = incVowels
         self.tryies = []
         self.test_case_generator = CaseWriter()
+        self.end = None
 
         assert self.startVowels == 3 or self.startVowels == 2
         assert incVowels == 1 or incVowels == 2
@@ -340,7 +228,8 @@ class Guesser:
 
         self.words5char = []
         self.loadWords()
-        self.print_candidates_trained("", "", "")
+        if initialGuess:
+            self.print_candidates_trained("", "", "")
         pass
 
     def nextGuess(self, str, pttr):
@@ -349,13 +238,14 @@ class Guesser:
     def print_candidates_trained(self, in_word, out_of_word, word_regex):
         raise ValueError("Should not be called. Maybe a problem in constructor")
 
-    def _nextGuessChar(self, usedword, pttr):
+    def _nextGuessChar(self, usedword, pttr, ret=False):
         if pttr == "!!!!!":
             for t, r in self.tryies:
                 self.test_case_generator.add_case(t, r)
             self.test_case_generator.finish(usedword)
             print("Word is =>  {}".format(usedword))
-            return
+            self.end = usedword
+            return []
         else:
             self.tryies.append((usedword, pttr))
 
@@ -381,7 +271,7 @@ class Guesser:
                     self.wrong_place[i].append(usedword[i])
                     self.in_word.append(usedword[i])
             else:
-                ValueError("Patter should only have x ! or ?")
+                ValueError("Pattern should only have x ! or ?")
 
         arr_reg = [[] for i in range(5)]
         for i in range(5):
@@ -393,7 +283,7 @@ class Guesser:
 
         cur_reg = "".join([x if x != '0' else '.' for x in arr_reg])
 
-        self.print_candidates_trained("".join(self.in_word), "".join(self.not_in_word), cur_reg)
+        return self.print_candidates_trained("".join(set(self.in_word)), "".join(self.not_in_word), cur_reg, ret=ret)
         pass
 
     def loadWords(self):
@@ -449,7 +339,7 @@ class Guesser:
             return True
         raise TypeError("relations should be in/out")
 
-    def _print_candidates_trained_char(self, in_word, out_of_word, word_regex):
+    def _print_candidates_trained_char(self, in_word, out_of_word, word_regex, ret=False):
         iw_l = len(in_word)
 
         vc = vowel_f.copy()
@@ -494,18 +384,66 @@ class Guesser:
 
         while not candidates:
             print("Failed! With sequence '{}'".format(in_word + new_chars))
-            rollback = new_chars[-1]
-            new_chars = new_chars[:-1]
-            new_chars += next(char_gen)
+            if new_chars:
+                rollback = new_chars[-1]
+                new_chars = new_chars[:-1]
+                gen.back(rollback)
+                try:
+                    new_chars += next(char_gen)
+                except StopIteration:
+                    print("Ignoring last charcter")
+            else:
+                in_word = in_word[:-1]
             print("Retrying with '{}'".format(in_word + new_chars))
             candidates = self.print_candidates(in_word + new_chars, out_of_word, word_regex, True)
-            gen.back(rollback)
 
 
-        print(candidates)
+        if ret:
+            return candidates
+        else:
+            print(candidates)
+
+
+class DualGuesser:
+    def __init__(self, startVowels=3, incVowels=1):
+        self.g1 = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=startVowels, incVowels=incVowels)
+        self.g2 = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=startVowels, incVowels=incVowels, initialGuess=False)
+        self.g1_end = False
+        self.g2_end = False
+
+    def nextGuess(self, w, g1a, g2a):
+        g1c = self.g1.nextGuess(w, g1a, ret=True)
+        g2c = self.g2.nextGuess(w, g2a, ret=True)
+
+        self.g1_end = bool(g1c)
+        self.g2_end = bool(g2c)
+
+        u = [z for z in g1c if z in g2c]
+        if u:
+            print(u)
+            return
+        else:
+            if g1c:
+                if g2c:
+                    g1c.extend(g2c)
+                print(g1c)
+        pass
 
 
 if __name__ == '__main__':
-    #wg = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=3)
-    wg = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=2, incVowels=2)
-    wg.nextGuess("ramos", "?xxxx")
+
+    wg = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=2)
+    # Test this sequence
+    # wg.nextGuess("morsa","x!xx?")
+    # wg.nextGuess("boate","x!?xx")
+    # wg.nextGuess("colai","?!?!x")
+    # wg.nextGuess("locao","?!!!x")
+    wg.nextGuess("morsa","x!xx?")
+    wg.nextGuess("boate","x!?xx")
+    #wg.nextGuess("colai","?!?!x")
+    wg.nextGuess("local","x!!!!")
+    # dg.nextGuess("ramos", "xxx?x", "!!xxx")
+    # dg = DualGuesser(2, 2)
+    # dg.nextGuess("ralei","xxxx?", "!!xxx")
+    # dg.nextGuess("intuo","?xx?!", "xxxxx")
+
