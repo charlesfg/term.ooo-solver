@@ -204,9 +204,10 @@ class Guesser:
     """
 
     STRATEGY_CHARFREQ = "charfreq"
+    STRATEGY_CHARFREQ_WITH_AVOID_KNOW = "charfreqavoidknow"
 
     # def __init__(self, strategy, *args, **kwargs):
-    def __init__(self, strategy=STRATEGY_CHARFREQ, startVowels=3, incVowels=1, initialGuess=True):
+    def __init__(self, startVowels=3, incVowels=1):
 
         self.word = ['0' for i in range(5)]
         # used to hold characters for the exclusion [^`x`] regex
@@ -222,68 +223,15 @@ class Guesser:
         assert self.startVowels == 3 or self.startVowels == 2
         assert incVowels == 1 or incVowels == 2
 
-        if strategy == Guesser.STRATEGY_CHARFREQ:
-            self.nextGuess = self._nextGuessChar
-            self.print_candidates_trained = self._print_candidates_trained_char
-
         self.words5char = []
         self.loadWords()
-        if initialGuess:
-            self.print_candidates_trained("", "", "")
         pass
 
-    def nextGuess(self, str, pttr):
+    def nextGuess(self, str, pttr, ret=False):
         raise ValueError("Should not be called. Maybe a problem in constructor")
 
     def print_candidates_trained(self, in_word, out_of_word, word_regex):
-        raise ValueError("Should not be called. Maybe a problem in constructor")
-
-    def _nextGuessChar(self, usedword, pttr, ret=False):
-        if pttr == "!!!!!":
-            for t, r in self.tryies:
-                self.test_case_generator.add_case(t, r)
-            self.test_case_generator.finish(usedword)
-            print("Word is =>  {}".format(usedword))
-            self.end = usedword
-            return []
-        else:
-            self.tryies.append((usedword, pttr))
-
-        # ! has the most priority, should be evaluated first to avoid errors
-        # (eg. removing a character of the pool after ensuring its position)
-        for i in range(5):
-            c = pttr[i]
-            if c == '!':
-                if usedword[i] not in self.word[i]:
-                    self.word[i] = usedword[i]
-                    self.in_word.append(usedword[i])
-
-        for i in range(5):
-            c = pttr[i]
-            if c == 'x':
-                if usedword[i] not in self.word and usedword[i] not in [z for x in self.wrong_place for z in x]:
-                    self.not_in_word.append(usedword[i])
-                else:
-                    if usedword[i] not in self.wrong_place[i]:
-                        self.wrong_place[i].append(usedword[i])
-            elif c == '?':
-                if usedword[i] not in self.wrong_place[i]:
-                    self.wrong_place[i].append(usedword[i])
-                    self.in_word.append(usedword[i])
-            else:
-                ValueError("Pattern should only have x ! or ?")
-
-        arr_reg = [[] for i in range(5)]
-        for i in range(5):
-            c = self.word[i]
-            if c == '0' and bool(self.wrong_place[i]):
-                arr_reg[i] = '[^{}]'.format(''.join(self.wrong_place[i]))
-            else:
-                arr_reg[i] = c
-
-        cur_reg = "".join([x if x != '0' else '.' for x in arr_reg])
-
-        return self.print_candidates_trained("".join(set(self.in_word)), "".join(self.not_in_word), cur_reg, ret=ret)
+        # raise ValueError("Should not be called. Maybe a problem in constructor")
         pass
 
     def loadWords(self):
@@ -339,16 +287,77 @@ class Guesser:
             return True
         raise TypeError("relations should be in/out")
 
-    def _print_candidates_trained_char(self, in_word, out_of_word, word_regex, ret=False):
+
+class GuesserCharFrequencyNaive(Guesser):
+
+    def __init__(self, startVowels=3, incVowels=1, initialGuess=True):
+        super().__init__(startVowels=startVowels, incVowels=incVowels)
+        if initialGuess:
+            self.print_candidates_trained("", "", "")
+        pass
+
+    def nextGuess(self, usedword, pttr, ret=False):
+        if pttr == "!!!!!":
+            for t, r in self.tryies:
+                self.test_case_generator.add_case(t, r)
+            self.test_case_generator.finish(usedword)
+            print("Word is =>  {}".format(usedword))
+            self.end = usedword
+            return []
+        else:
+            self.tryies.append((usedword, pttr))
+
+        # ! has the most priority, should be evaluated first to avoid errors
+        # (eg. removing a character of the pool after ensuring its position)
+        for i in range(5):
+            c = pttr[i]
+            if c == '!':
+                if usedword[i] not in self.word[i]:
+                    self.word[i] = usedword[i]
+                    self.in_word.append(usedword[i])
+
+        for i in range(5):
+            c = pttr[i]
+            if c == 'x':
+                if usedword[i] not in self.word and usedword[i] not in [z for x in self.wrong_place for z in x]:
+                    self.not_in_word.append(usedword[i])
+                else:
+                    if usedword[i] not in self.wrong_place[i]:
+                        self.wrong_place[i].append(usedword[i])
+            elif c == '?':
+                if usedword[i] not in self.wrong_place[i]:
+                    self.wrong_place[i].append(usedword[i])
+                    self.in_word.append(usedword[i])
+            else:
+                ValueError("Pattern should only have x ! or ?")
+
+        arr_reg = [[] for i in range(5)]
+        for i in range(5):
+            c = self.word[i]
+            if c == '0' and bool(self.wrong_place[i]):
+                arr_reg[i] = '[^{}]'.format(''.join(self.wrong_place[i]))
+            else:
+                arr_reg[i] = c
+
+        cur_reg = "".join([x if x != '0' else '.' for x in arr_reg])
+
+        return self.print_candidates_trained("".join(set(self.in_word)), "".join(self.not_in_word), cur_reg, ret=ret)
+        pass
+
+    def print_candidates_trained(self, in_word, out_of_word, word_regex, ret=False):
         iw_l = len(in_word)
 
         vc = vowel_f.copy()
         cc = consonant_f.copy()
+        candidates = None
 
         # No space for more characters
         if iw_l == 5:
-            self.print_candidates(in_word, out_of_word, word_regex)
-            return
+            candidates = self.print_candidates(in_word, out_of_word, word_regex, ret=ret)
+            if ret:
+                return candidates
+            else:
+                print(candidates)
 
         # Removing chars that will not be included in the next pool
         for o in out_of_word + in_word:
@@ -365,11 +374,16 @@ class Guesser:
                 [x[0] for x in sorted(vc.items(), key=operator.itemgetter(1), reverse=True)][0:self.startVowels])
             tmp_inw += "".join(
                 [x[0] for x in sorted(cc.items(), key=operator.itemgetter(1), reverse=True)][0:5 - self.startVowels])
-            self.print_candidates(tmp_inw, out_of_word, word_regex)
+            candidates = self.print_candidates(tmp_inw, out_of_word, word_regex, ret=ret)
+            if ret:
+                return candidates
+            else:
+                print(candidates)
+
             return
 
         new_chars = ""
-        candidates = None
+
         # print("-",in_word)
 
         gen = CharacterGenerator(cc, vc, self.incVowels)
@@ -397,17 +411,89 @@ class Guesser:
             print("Retrying with '{}'".format(in_word + new_chars))
             candidates = self.print_candidates(in_word + new_chars, out_of_word, word_regex, True)
 
-
         if ret:
             return candidates
         else:
             print(candidates)
 
+    pass
+
+
+class GuesserCharFrequencyAvoidKnown(GuesserCharFrequencyNaive):
+
+    def __init__(self, startVowels=3, incVowels=1, initialGuess=True):
+        super().__init__(startVowels=startVowels, incVowels=incVowels, initialGuess=initialGuess)
+
+
+    def nextGuess(self, usedword, pttr, ret=False, avoidKnown=False):
+        if pttr == "!!!!!":
+            for t, r in self.tryies:
+                self.test_case_generator.add_case(t, r)
+            self.test_case_generator.finish(usedword)
+            print("Word is =>  {}".format(usedword))
+            self.end = usedword
+            return []
+        else:
+            self.tryies.append((usedword, pttr))
+
+        # ! has the most priority, should be evaluated first to avoid errors
+        # (eg. removing a character of the pool after ensuring its position)
+        for i in range(5):
+            c = pttr[i]
+            if c == '!':
+                if usedword[i] not in self.word[i]:
+                    self.word[i] = usedword[i]
+                    self.in_word.append(usedword[i])
+
+        for i in range(5):
+            c = pttr[i]
+            if c == 'x':
+                if usedword[i] not in self.word and usedword[i] not in [z for x in self.wrong_place for z in x]:
+                    self.not_in_word.append(usedword[i])
+                else:
+                    if usedword[i] not in self.wrong_place[i]:
+                        self.wrong_place[i].append(usedword[i])
+            elif c == '?':
+                if usedword[i] not in self.wrong_place[i]:
+                    self.wrong_place[i].append(usedword[i])
+                    self.in_word.append(usedword[i])
+            else:
+                ValueError("Pattern should only have x ! or ?")
+
+        arr_reg = [[] for i in range(5)]
+        for i in range(5):
+            c = self.word[i]
+            if c == '0' and bool(self.wrong_place[i]):
+                arr_reg[i] = '[^{}]'.format(''.join(self.wrong_place[i]))
+            else:
+                arr_reg[i] = c
+
+        cur_reg = "".join([x if x != '0' else '.' for x in arr_reg])
+
+        if avoidKnown:
+            cand = []
+            sz = len(self.in_word)
+            i = -1
+            while i <= sz and not cand:
+                i += 1
+                cand = self.print_candidates_trained("".join(set(self.in_word[sz - i:sz])),
+                                                     "".join((self.not_in_word + self.in_word[0:sz - i])), ".....",
+                                                     ret=True)
+
+            return self.print_candidates_trained("".join(set(self.in_word[sz - i:sz])),
+                                                 "".join((self.not_in_word + self.in_word[0:sz - i])), ".....",
+                                                 ret=ret)
+
+        else:
+            return self.print_candidates_trained("".join(set(self.in_word)), "".join(self.not_in_word), cur_reg,
+                                                 ret=ret)
+
 
 class DualGuesser:
-    def __init__(self, startVowels=3, incVowels=1):
-        self.g1 = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=startVowels, incVowels=incVowels)
-        self.g2 = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=startVowels, incVowels=incVowels, initialGuess=False)
+    def __init__(self, startVowels=3):
+
+        self.g1 = GuesserFactory.guesser(Guesser.STRATEGY_CHARFREQ, startVowels=startVowels)
+        self.g2 = GuesserFactory.guesser(Guesser.STRATEGY_CHARFREQ, startVowels=startVowels, initialGuess=False)
         self.g1_end = False
         self.g2_end = False
 
@@ -430,20 +516,31 @@ class DualGuesser:
         pass
 
 
-if __name__ == '__main__':
+class GuesserFactory:
 
-    wg = Guesser(Guesser.STRATEGY_CHARFREQ, startVowels=2)
+    @classmethod
+    def guesser(cls, strategy=Guesser.STRATEGY_CHARFREQ, startVowels=3, initialGuess=True) -> Guesser:
+        if strategy == Guesser.STRATEGY_CHARFREQ:
+            return GuesserCharFrequencyNaive(startVowels, incVowels=1, initialGuess=initialGuess)
+        elif strategy == Guesser.STRATEGY_CHARFREQ_WITH_AVOID_KNOW:
+            return GuesserCharFrequencyAvoidKnown(startVowels, incVowels=1, initialGuess=initialGuess)
+        else:
+            raise ValueError("Unknown Strategy {}".format(strategy))
+        pass
+
+
+if __name__ == '__main__':
+    wg = GuesserFactory.guesser(Guesser.STRATEGY_CHARFREQ_WITH_AVOID_KNOW, 3)
     # Test this sequence
     # wg.nextGuess("morsa","x!xx?")
     # wg.nextGuess("boate","x!?xx")
     # wg.nextGuess("colai","?!?!x")
     # wg.nextGuess("locao","?!!!x")
-    wg.nextGuess("morsa","x!xx?")
-    wg.nextGuess("boate","x!?xx")
-    #wg.nextGuess("colai","?!?!x")
-    wg.nextGuess("local","x!!!!")
+    #wg.nextGuess("serao", "x!!x!", avoidKnown=True)
+    # wg.nextGuess("boate", "x!?xx")
+    # wg.nextGuess("colai","?!?!x")
+    # wg.nextGuess("local", "x!!!!")
     # dg.nextGuess("ramos", "xxx?x", "!!xxx")
     # dg = DualGuesser(2, 2)
     # dg.nextGuess("ralei","xxxx?", "!!xxx")
     # dg.nextGuess("intuo","?xx?!", "xxxxx")
-

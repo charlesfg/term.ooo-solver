@@ -1,3 +1,3 @@
-from guest5word import Guesser
+from guest5word import Guesser, GuesserFactory
 
-wg = Guesser()
+wg = GuesserFactory.guesser(Guesser.STRATEGY_CHARFREQ_WITH_AVOID_KNOW, 3)
